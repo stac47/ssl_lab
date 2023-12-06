@@ -20,22 +20,19 @@ typedef struct in_addr IN_ADDR;
 #define READ_BUFFER_SIZE 1000000
 
 void log_ssl() {
-    int err;
-    while (err = ERR_get_error()) {
-        char *str = ERR_error_string(err, 0);
-        if (!str)
-            return;
-        printf(str);
-        printf("\n");
-        fflush(stdout);
-    }
+    int err = ERR_get_error();
+    const char* str = ERR_lib_error_string(err);
+    const char* reason = ERR_reason_error_string(err);
+
+    printf("LOG SSL: code=%d, human='%s', reason='%s'\n", err, str, reason);
 }
 
 int send_request(SSL* ssl, const char* request) {
     int len = SSL_write(ssl, request, strlen(request));
+    log_ssl();
     if (len < 0) {
         int err = SSL_get_error(ssl, len);
-        fprintf(stderr, "Error sending request. Error=%d\n", err);
+        printf("Error sending request. Error=%d\n", err);
         return 0;
     }
     return len;
@@ -44,12 +41,13 @@ int send_request(SSL* ssl, const char* request) {
 int read_response(SSL* ssl) {
     int buf[READ_BUFFER_SIZE];
     int len = SSL_read(ssl, buf, READ_BUFFER_SIZE);
+    log_ssl();
     if (len < 0) {
         int err = SSL_get_error(ssl, len);
-        fprintf(stderr, "Error sending request. Error=%d\n", err);
+        printf("Error sending request. Error=%d\n", err);
         return 0;
     }
-    fprintf(stdout, "Reponse:\n%s", buf);
+    printf("Reponse:\n%s", buf);
     return len;
 }
 
@@ -63,7 +61,7 @@ int create_connection_to(const char* hostname) {
     SOCKADDR_IN sin = { 0 };
     hostinfo = gethostbyname(hostname);
     if (hostinfo == NULL) {
-        fprintf (stderr, "Unknown host %s.\n", hostname);
+        printf ("Unknown host %s.\n", hostname);
         exit(1);
     }
 
@@ -90,17 +88,26 @@ int main(int argc, char *argv[])
     SSLeay_add_ssl_algorithms();
     SSL_load_error_strings();
     SSL_CTX* ctx = SSL_CTX_new(TLS_method());
+    log_ssl();
     printf("SSL CTX created at %p\n", ctx);
     SSL* ssl = SSL_new(ctx);
-    printf("SSL created at %p\n", ssl);
-    SSL_set_fd(ssl, sock);
     log_ssl();
+    printf("SSL created at %p\n", ssl);
+    if (SSL_set_fd(ssl, sock)) {
+        printf("FD %d assigned to SSL at %p\n", sock, ssl);
+    }
+    else {
+        puts("An error occured");
+        log_ssl();
+        exit(1);
+    }
 
     int err = SSL_connect(ssl);
     if (err == 1) {
         puts("TLS handshake success");
     } else {
         log_ssl();
+        printf("Error sending request. Error=%d\n", err);
         exit(1);
     }
     const char* request = "GET https://stac47.github.io/ HTTP/1.1\r\n\r\n";

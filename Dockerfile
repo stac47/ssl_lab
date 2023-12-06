@@ -13,4 +13,4 @@ WORKDIR /reproducer
 
 COPY . /reproducer/
 
-RUN make && ./main
+RUN make

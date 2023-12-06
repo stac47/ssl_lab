@@ -7,8 +7,11 @@ MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
 main: main.o
-	gcc -o $@ $< -lssl -lcrypto 
+	gcc -o $@ $< -lssl -lcrypto
 
 main.o: main.c
-	gcc -c -o $@ $<
+	gcc -c -g -o $@ $<
 
+.PHONY: clean
+clean:
+	rm main main.o
